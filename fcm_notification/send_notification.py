@@ -2,19 +2,18 @@ import re
 
 import firebase_admin
 import frappe
-import requests
 from firebase_admin import credentials, messaging
 from frappe import enqueue
 
 
 def initialize_firebase():
+    firebase_settings = frappe.get_single("Firebase Settings")
+    service_account = firebase_settings.service_account
     try:
         admin = firebase_admin.get_app()
     except ValueError:
-        cred = credentials.Certificate(
-            frappe.get_site_path() + "/private/files/credentials.json"
-        )
-        firebase_admin.initialize_app(credential=cred)
+        cred = credentials.Certificate(frappe.get_site_path() + service_account)
+        firebase_admin.initialize_app(cred)
 
 
 def user_id(doc):
@@ -61,6 +60,23 @@ def process_notification(device_id, notification):
         "title": title,
         "message": message,
     }
+    # Get customer address lat, long and send it to the agent via notification if the doctype is SalesOrder
+    if notification.document_type == "Sales Order":
+        sales_order = frappe.get_doc("Sales Order", notification.document_name)
+        customer_jid = frappe.db.get_value(
+            "Customer", sales_order.customer, "jid", debug=True
+        )
+        sales_partner_jid = frappe.db.get_value(
+            "Sales Partner", sales_order.sales_partner, "jid", debug=True
+        )
+        address = frappe.get_doc("Address", sales_order.customer_address)
+        if address and address.custom_latitude:
+            data["latitude"] = address.custom_latitude
+            data["longitude"] = address.custom_longitude
+        if customer_jid:
+            data["customer_jid"] = customer_jid
+        if sales_partner_jid:
+            data["sales_partner_jid"] = sales_partner_jid
 
     try:
         messaging.send(
