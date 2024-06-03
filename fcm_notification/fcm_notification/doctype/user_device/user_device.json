@@ -9,13 +9,21 @@
  "field_order": [
   "user",
   "device_name",
-  "is_physical_device",
+  "model",
+  "enabled",
   "naming_series",
   "column_break_rzak",
   "device_id",
   "platform",
-  "model",
   "application_type",
+  "is_physical_device",
+  "package_info_section",
+  "app_name",
+  "package_name",
+  "build_signature",
+  "column_break_xhoh",
+  "version",
+  "build_number",
   "android_device_info_section",
   "version_security_patch",
   "version_sdk_int",
@@ -358,12 +366,58 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Application Type",
-   "options": "\nCustomer\nAgent"
+   "options": "\nCustomer\nAgent",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "package_info_section",
+   "fieldtype": "Section Break",
+   "label": "Package Info"
+  },
+  {
+   "fieldname": "app_name",
+   "fieldtype": "Data",
+   "label": "app_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "package_name",
+   "fieldtype": "Data",
+   "label": "package_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_signature",
+   "fieldtype": "Data",
+   "label": "build_signature",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_xhoh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "build_number",
+   "fieldtype": "Data",
+   "label": "build_number",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-06-02 23:54:34.172746",
+ "modified": "2024-06-03 22:50:29.525556",
  "modified_by": "Administrator",
  "module": "Fcm Notification",
  "name": "User Device",
