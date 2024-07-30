@@ -31,11 +31,10 @@ def send_notification(doc, event=None):
         for device_id in device_ids:
             enqueue(
                 process_notification,
-                queue="default",
+                queue="notifications_queue",
                 now=False,
                 device_id=device_id,
-                notification=doc,
-                job_id=device_id.device_id,
+                notification=doc
             )
 
 
