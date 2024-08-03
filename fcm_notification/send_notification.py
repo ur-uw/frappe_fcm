@@ -19,7 +19,7 @@ def initialize_firebase():
 def user_id(doc):
     user_email = doc.for_user
     user_device_id = frappe.get_all(
-        "User Device", filters={"user": user_email}, fields=["device_id"]
+        "User Device", filters={"user": user_email,"enabled":True}, fields=["device_id","name"]
     )
     return user_device_id
 
@@ -28,13 +28,13 @@ def user_id(doc):
 def send_notification(doc, event=None):
     if event != None:
         device_ids = user_id(doc)
-        for device_id in device_ids:
+        for dvs in device_ids:
             enqueue(
                 process_notification,
                 queue="notifications_queue",
                 now=False,
-                device_id=device_id,
-                notification=doc
+                device=dvs,
+                notification=doc,
             )
 
 
@@ -45,7 +45,7 @@ def convert_message(message):
     return cleanmessage
 
 
-def process_notification(device_id, notification):
+def process_notification(device, notification):
     initialize_firebase()
     message = notification.email_content
     title = notification.subject
@@ -81,7 +81,7 @@ def process_notification(device_id, notification):
         messaging.send(
             message=messaging.Message(
                 data=data,
-                token=device_id.device_id,
+                token=device.device_id,
                 android=messaging.AndroidConfig(
                     priority="normal",
                     notification=messaging.AndroidNotification(
@@ -106,6 +106,12 @@ def process_notification(device_id, notification):
                 ),
             ),
         )
+    except messaging.UnregisteredError as e:
+        # TODO: optimize this add devices to a list and disable them with frappe.db.set_value then use commit only once
+        frappe.db.set_value("User Device", device.name, "enabled", 0)
+        frappe.db.commit()
+        frappe.error_log(f"Error sending notification: {e}, Disabling Device ID: {device.device_id}")
+        return device.device_id
     except Exception as e:
         frappe.error_log(f"Error sending notification: {e}")
-        pass
+        return None
