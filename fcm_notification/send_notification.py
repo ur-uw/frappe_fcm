@@ -19,7 +19,9 @@ def initialize_firebase():
 def user_id(doc):
     user_email = doc.for_user
     user_device_id = frappe.get_all(
-        "User Device", filters={"user": user_email,"enabled":True}, fields=["device_id","name"]
+        "User Device",
+        filters={"user": user_email, "enabled": True},
+        fields=["device_id", "name"],
     )
     return user_device_id
 
@@ -29,10 +31,11 @@ def send_notification(doc, event=None):
     if event != None:
         device_ids = user_id(doc)
         for dvs in device_ids:
+            frappe.sendmail()
             enqueue(
                 process_notification,
                 queue="notifications_queue",
-                now=False,
+                now=True,
                 device=dvs,
                 notification=doc,
             )
@@ -61,21 +64,13 @@ def process_notification(device, notification):
     }
     # Get customer address lat, long and send it to the agent via notification if the doctype is SalesOrder
     if notification.document_type == "Sales Order":
-        sales_order = frappe.get_doc("Sales Order", notification.document_name)
-        customer_jid = frappe.db.get_value(
-            "Customer", sales_order.customer, "jid", debug=True
-        )
-        sales_partner_jid = frappe.db.get_value(
-            "Sales Partner", sales_order.sales_partner, "jid", debug=True
-        )
-        address = frappe.get_doc("Address", sales_order.customer_address)
+        sales_order = frappe.get_cached_doc("Sales Order", notification.document_name)
+        address = frappe.get_cached_doc("Address", sales_order.customer_address)
         if address and address.custom_latitude:
             data["latitude"] = address.custom_latitude
             data["longitude"] = address.custom_longitude
-        if customer_jid:
-            data["customer_jid"] = customer_jid
-        if sales_partner_jid:
-            data["sales_partner_jid"] = sales_partner_jid
+        data["customer_jid"] = sales_order.name.lower()
+        data["sales_partner_jid"] = sales_order.name.lower()
 
     try:
         messaging.send(
@@ -98,6 +93,7 @@ def process_notification(device, notification):
                         aps=messaging.Aps(
                             alert=messaging.ApsAlert(title=title, body=message),
                             sound="default",
+                            custom_data=data,
                         ),
                     )
                 ),
@@ -110,7 +106,9 @@ def process_notification(device, notification):
         # TODO: optimize this add devices to a list and disable them with frappe.db.set_value then use commit only once
         frappe.db.set_value("User Device", device.name, "enabled", 0)
         frappe.db.commit()
-        frappe.error_log(f"Error sending notification: {e}, Disabling Device ID: {device.device_id}")
+        frappe.error_log(
+            f"Error sending notification: {e}, Disabling Device ID: {device.device_id}"
+        )
         return device.device_id
     except Exception as e:
         frappe.error_log(f"Error sending notification: {e}")
