@@ -64,7 +64,7 @@ def process_notification(device, notification):
     }
     # Get customer address lat, long and send it to the agent via notification if the doctype is SalesOrder
     if notification.document_type == "Sales Order":
-        sales_order = frappe.get_cached_doc("Sales Order", notification.document_name)
+        sales_order = frappe.get_doc("Sales Order", notification.document_name)
         address = frappe.get_cached_doc("Address", sales_order.customer_address)
         if address and address.custom_latitude:
             data["latitude"] = address.custom_latitude
