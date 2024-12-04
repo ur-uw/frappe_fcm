@@ -35,7 +35,6 @@ def send_notification(doc, event=None):
             enqueue(
                 process_notification,
                 queue="notifications_queue",
-                now=True,
                 device=dvs,
                 notification=doc,
             )
