@@ -18,12 +18,17 @@ def initialize_firebase():
 
 def user_id(doc):
     user_email = doc.for_user
-    user_device_id = frappe.get_all(
+    user_device_id = get_user_devices(user_email)
+    return user_device_id
+
+
+def get_user_devices(user):
+    """Get all enabled devices for a user."""
+    return frappe.get_all(
         "User Device",
-        filters={"user": user_email, "enabled": True},
+        filters={"user": user, "enabled": True},
         fields=["device_id", "name"],
     )
-    return user_device_id
 
 
 @frappe.whitelist()
@@ -31,7 +36,6 @@ def send_notification(doc, event=None):
     if event != None:
         device_ids = user_id(doc)
         for dvs in device_ids:
-            frappe.sendmail()
             enqueue(
                 process_notification,
                 queue="notifications_queue",
@@ -68,9 +72,12 @@ def process_notification(device, notification):
         if address and address.custom_latitude:
             data["latitude"] = address.custom_latitude
             data["longitude"] = address.custom_longitude
-        data["customer_jid"] = sales_order.name.lower()
-        data["sales_partner_jid"] = sales_order.name.lower()
+        send_fcm_message(device, title, message, data)
 
+
+def send_fcm_message(device, title, message, data):
+    initialize_firebase()
+    """Send FCM notification to a specific device"""
     try:
         messaging.send(
             message=messaging.Message(
@@ -102,11 +109,13 @@ def process_notification(device, notification):
             ),
         )
     except messaging.UnregisteredError as e:
-        # TODO: optimize this add devices to a list and disable them with frappe.db.set_value then use commit only once
         frappe.db.set_value("User Device", device.name, "enabled", 0)
         frappe.db.commit()
-        frappe.error_log(
-            f"Error sending notification: {e}, Disabling Device ID: {device.device_id}"
+        frappe.log_error(
+            title="Unregistered Device",
+            message=f"Device {device.device_id} is unregistered. Error: {str(e)}",
+            reference_doctype="User Device",
+            reference_name=device.name,
         )
         return device.device_id
     except Exception as e:
