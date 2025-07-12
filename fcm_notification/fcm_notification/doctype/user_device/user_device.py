@@ -25,4 +25,7 @@ def handle_user_device(device_data):
     user_device.update(device_data)
     user_device.save(ignore_permissions=True)
     frappe.db.commit()
-    return user_device
+    return {
+        "device_id": user_device.device_id,
+        "result": "success"
+    }
