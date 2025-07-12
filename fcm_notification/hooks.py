@@ -106,7 +106,11 @@ app_license = "MIT"
 doc_events = {
     "Notification Log": {
         "before_insert": "fcm_notification.send_notification.send_notification"
-    }
+    },
+    "User Device": {
+        "on_update": "fcm_notification.send_notification.invalidate_user_devices_cache_hooks",
+        "after_insert": "fcm_notification.send_notification.invalidate_user_devices_cache_hooks",
+    },
 }
 
 # Scheduled Tasks

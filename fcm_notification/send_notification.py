@@ -23,12 +23,25 @@ def user_id(doc):
 
 
 def get_user_devices(user):
-    """Get all enabled devices for a user."""
-    return frappe.get_all(
+    """Get all enabled devices for a user, with caching."""
+    cache_key = f"user_devices:{user}"
+    cached_devices = frappe.cache().get_value(cache_key)
+
+    if cached_devices is not None:
+        return cached_devices
+
+    devices = frappe.get_all(
         "User Device",
         filters={"user": user, "enabled": True},
-        fields=["device_id", "name"],
+        fields=["device_id", "name", "user"],
+        order_by="creation desc",
+        limit_page_length=5,
     )
+
+    frappe.cache().set_value(
+        cache_key, devices, expires_in_sec=3600
+    )  # Cache for 1 hour
+    return devices
 
 
 @frappe.whitelist()
@@ -67,8 +80,10 @@ def process_notification(device, notification):
     }
     # Get customer address lat, long and send it to the agent via notification if the doctype is SalesOrder
     if notification.document_type == "Sales Order":
-        sales_order = frappe.get_doc("Sales Order", notification.document_name)
-        address = frappe.get_cached_doc("Address", sales_order.customer_address)
+        customer_address = frappe.get_cached_value(
+            "Sales Order", notification.document_name, "customer_address"
+        )
+        address = frappe.get_cached_doc("Address", customer_address)
         if address and address.custom_latitude:
             data["latitude"] = address.custom_latitude
             data["longitude"] = address.custom_longitude
@@ -110,6 +125,8 @@ def send_fcm_message(device, title, message, data):
         )
     except messaging.UnregisteredError as e:
         frappe.db.set_value("User Device", device.name, "enabled", 0)
+        # Invalidate cache for this device
+        invalidate_user_devices_cache(device.user)
         frappe.db.commit()
         frappe.log_error(
             title="Unregistered Device",
@@ -121,3 +138,14 @@ def send_fcm_message(device, title, message, data):
     except Exception as e:
         frappe.error_log(f"Error sending notification: {e}")
         return None
+
+
+def invalidate_user_devices_cache_hooks(doc, method):
+    """Invalidate the cache for user devices when a User Device is updated or inserted."""
+    user = doc.user
+    invalidate_user_devices_cache(user)
+
+def invalidate_user_devices_cache(user):
+    """Invalidate the cache for user devices."""
+    cache_key = f"user_devices:{user}"
+    frappe.cache().delete_value(cache_key)
