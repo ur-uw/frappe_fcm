@@ -33,7 +33,7 @@ def get_user_devices(user):
     devices = frappe.get_all(
         "User Device",
         filters={"user": user, "enabled": True},
-        fields=["device_id", "name", "user"],
+        fields=["Distinct(device_id) as device_id", "name", "user"],
         order_by="creation desc",
         limit_page_length=5,
     )
