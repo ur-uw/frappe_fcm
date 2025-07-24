@@ -135,6 +135,18 @@ def send_fcm_message(device, title, message, data):
             reference_name=device.name,
         )
         return device.device_id
+    except messaging.SenderIdMismatchError:
+        frappe.db.set_value("User Device", device.name, "enabled", 0)
+        # Invalidate cache for this device
+        invalidate_user_devices_cache(device.user)
+        frappe.db.commit()
+        frappe.log_error(
+            title="Sender ID Mismatch",
+            message=f"Device {device.device_id} is mismatched: {str(e)}",
+            reference_doctype="User Device",
+            reference_name=device.name,
+        )
+        return device.device_id
     except Exception as e:
         frappe.error_log(f"Error sending notification: {e}")
         return None
